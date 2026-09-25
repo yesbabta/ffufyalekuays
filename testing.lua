@@ -4387,51 +4387,75 @@ local SpringAnimations = {}
 --[=[
     Spring animator state type.
 ]=]
-export type SpringAnimatorState = {
-	OffsetSpring: { Position: Vector2, Velocity: Vector2, Target: Vector2 },
-	RotationSpring: { Position: number, Velocity: number, Target: number },
-	ScaleSpring: { Position: number, Velocity: number, Target: number },
-	Connection: RBXScriptConnection?,
+--// ═══════════════════════════════════════════════════════════════════════════════
+--// SECTION 20: SPRING-BASED LAYER ANIMATIONS (FIXED)
+--// ═══════════════════════════════════════════════════════════════════════════════
+
+local SpringAnimations = {}
+
+--[=[
+    Spring-аниматор для одного значения.
+    Универсальный: работает и с number, и с Vector2.
+]=]
+export type SpringAnimator = {
+	Spring: any,         -- SpringState (число) или Spring2DState (Vector2)
+	Config: SpringConfig,
+	IsVector: boolean,
 }
 
 --[=[
-    Create a spring animator for layer effects.
-    
-    @param refs CompleteLayerRefs -- Layer references
-    @param config LiquidGlassConfig -- Configuration
-    @return SpringAnimatorState -- Animator state
+    Создаёт аниматор.
+    @param initialValue number | Vector2
+    @param config SpringConfig? -- если nil, берётся Constants.Springs.Default
+    @return SpringAnimator
 ]=]
 function SpringAnimations.CreateAnimator(
-	refs: CompleteLayerRefs,
-	config: LiquidGlassConfig
-): SpringAnimatorState
-	local springConfig = config.Spring or Constants.Defaults.Springs.Default
-	
-	local state: SpringAnimatorState = {
-		OffsetSpring = SpringPhysics.Create2D(
-			Vector2.zero,
-			springConfig.Stiffness,
-			springConfig.Damping,
-			springConfig.Mass
-		),
-		RotationSpring = SpringPhysics.Create(
-			0,
-			springConfig.Stiffness * 0.8,
-			springConfig.Damping,
-			springConfig.Mass
-		),
-		ScaleSpring = SpringPhysics.Create(
-			1,
-			springConfig.Stiffness * 1.2,
-			springConfig.Damping * 0.9,
-			springConfig.Mass
-		),
-		Connection = nil,
+	initialValue: any,
+	config: SpringConfig?
+): SpringAnimator
+	local springConfig = config or Constants.Springs.Default
+	local isVector = typeof(initialValue) == "Vector2"
+
+	local spring
+	if isVector then
+		spring = SpringPhysics.Create2D(initialValue, springConfig)
+	else
+		spring = SpringPhysics.Create(initialValue, springConfig)
+	end
+
+	return {
+		Spring = spring,
+		Config = springConfig,
+		IsVector = isVector,
 	}
-	
-	return state
 end
 
+--[=[
+    Устанавливает цель пружины.
+]=]
+function SpringAnimations.SetTarget(animator: SpringAnimator, target: any)
+	if not animator then return end
+	if animator.IsVector then
+		SpringPhysics.SetTarget2D(animator.Spring, target)
+	else
+		SpringPhysics.SetTarget(animator.Spring, target)
+	end
+end
+
+--[=[
+    Шагает симуляцию на dt секунд.
+    @return number | Vector2 -- текущее значение
+]=]
+function SpringAnimations.Step(animator: SpringAnimator, dt: number): any
+	if not animator then return nil end
+	if animator.IsVector then
+		SpringPhysics.Step2D(animator.Spring, animator.Config, dt)
+		return animator.Spring.Position
+	else
+		SpringPhysics.Step(animator.Spring, animator.Config, dt)
+		return animator.Spring.Position
+	end
+end
 --[=[
     Start spring animation loop.
     
