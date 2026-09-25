@@ -1,16 +1,8 @@
---[[
-    LiquidGlass Pro v3.0 — Full Working
-    Все эффекты, все слои, все пресеты.
-]]
+--[[ LiquidGlass Pro v3.0 ]]
 
 local TweenService     = game:GetService("TweenService")
 local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local Players          = game:GetService("Players")
-
---// ═══════════════════════════════════════════════════════════════════════════════
---// CONSTANTS
---// ═══════════════════════════════════════════════════════════════════════════════
 
 local Constants = {}
 Constants.VERSION = "3.0.0"
@@ -43,24 +35,22 @@ Constants.Defaults = {
         Tint = Color3.fromRGB(255, 255, 255), TintOpacity = 0.12,
     },
     BorderGradient = {
-        Enabled = true, BaseRotation = 135, MouseInfluence = 36,
-        Thickness = 1.5,
+        Enabled = true, BaseRotation = 135, MouseInfluence = 36, Thickness = 1.5,
     },
     Depth = {
         Enabled = true,
-        TopGlowColor = Color3.fromRGB(255, 255, 255), TopGlowOpacity = 0.25, TopGlowSize = 40,
-        BottomShadowColor = Color3.fromRGB(0, 0, 0), BottomShadowOpacity = 0.12, BottomShadowSize = 25,
-        InnerGlowColor = Color3.fromRGB(255, 255, 255), InnerGlowOpacity = 0.06, InnerGlowSize = 10,
+        TopGlowColor = Color3.fromRGB(255, 255, 255), TopGlowOpacity = 0.25,
+        BottomShadowColor = Color3.fromRGB(0, 0, 0), BottomShadowOpacity = 0.12,
+        InnerGlowColor = Color3.fromRGB(255, 255, 255), InnerGlowOpacity = 0.06,
     },
     Interaction = {
         Enabled = true, HoverScale = 1.03, PressScale = 0.97,
         ElasticEnabled = true, ElasticIntensity = 6,
-        ContentFollowIntensity = 5,
-        GlowOnHover = true, HoverGlowIntensity = 1.4,
     },
     Background = {
         Color = Color3.fromRGB(255, 255, 255), Transparency = 0.85,
-        GradientTop = Color3.fromRGB(255, 255, 255), GradientBottom = Color3.fromRGB(220, 232, 248),
+        GradientTop = Color3.fromRGB(255, 255, 255),
+        GradientBottom = Color3.fromRGB(220, 232, 248),
         GradientRotation = 180,
     },
     Shadow = {
@@ -73,159 +63,110 @@ Constants.Defaults = {
     },
 }
 
---// ═══════════════════════════════════════════════════════════════════════════════
---// MATH HELPERS
---// ═══════════════════════════════════════════════════════════════════════════════
-
 local MathUtils = {}
 function MathUtils.Clamp(v, mn, mx) return math.max(mn, math.min(mx, v)) end
-function MathUtils.Lerp(a, b, t)    return a + (b - a) * t end
-
-function MathUtils.Smoothstep(e0, e1, x)
-    local t = MathUtils.Clamp((x - e0) / (e1 - e0), 0, 1)
-    return t * t * (3 - 2 * t)
-end
-
 function MathUtils.SeededRandom(seed)
     local x = math.sin(seed * 12.9898) * 43758.5453
     return x - math.floor(x)
 end
 
---// ═══════════════════════════════════════════════════════════════════════════════
---// SPRING PHYSICS
---// ═══════════════════════════════════════════════════════════════════════════════
-
 local SpringPhysics = {}
-
-function SpringPhysics.Create2D(initial, config)
+function SpringPhysics.Create2D(initial)
     return { Position = initial, Velocity = Vector2.new(0, 0), Target = initial, AtRest = true }
 end
-
-function SpringPhysics.Create(initial, config)
+function SpringPhysics.Create(initial)
     return { Position = initial, Velocity = 0, Target = initial, AtRest = true }
 end
-
 function SpringPhysics.SetTarget2D(s, t) s.Target = t; s.AtRest = false end
 function SpringPhysics.SetTarget(s, t)   s.Target = t; s.AtRest = false end
-
 function SpringPhysics.Step2D(s, cfg, dt)
     if s.AtRest then return true end
-    local tension, friction, mass, precision = cfg.Tension, cfg.Friction, cfg.Mass or 1, cfg.Precision or 0.01
-    local dx = s.Position.X - s.Target.X
-    local dy = s.Position.Y - s.Target.Y
-    local fx = -tension * dx - friction * s.Velocity.X
-    local fy = -tension * dy - friction * s.Velocity.Y
-    s.Velocity = Vector2.new(s.Velocity.X + (fx / mass) * dt, s.Velocity.Y + (fy / mass) * dt)
-    s.Position = Vector2.new(s.Position.X + s.Velocity.X * dt, s.Position.Y + s.Velocity.Y * dt)
-    local vMag = math.sqrt(s.Velocity.X^2 + s.Velocity.Y^2)
-    local dMag = math.sqrt(dx^2 + dy^2)
-    if vMag < precision and dMag < precision then
-        s.Position = s.Target; s.Velocity = Vector2.new(0, 0); s.AtRest = true
+    local ten, fri, mass, prec = cfg.Tension, cfg.Friction, cfg.Mass or 1, cfg.Precision or 0.01
+    local dx, dy = s.Position.X - s.Target.X, s.Position.Y - s.Target.Y
+    local fx = -ten * dx - fri * s.Velocity.X
+    local fy = -ten * dy - fri * s.Velocity.Y
+    s.Velocity = Vector2.new(s.Velocity.X + (fx/mass)*dt, s.Velocity.Y + (fy/mass)*dt)
+    s.Position = Vector2.new(s.Position.X + s.Velocity.X*dt, s.Position.Y + s.Velocity.Y*dt)
+    if math.sqrt(s.Velocity.X^2+s.Velocity.Y^2) < prec and math.sqrt(dx^2+dy^2) < prec then
+        s.Position = s.Target; s.Velocity = Vector2.new(0,0); s.AtRest = true
     end
     return s.AtRest
 end
-
-function SpringPhysics.Step(s, cfg, dt)
-    if s.AtRest then return true end
-    local tension, friction, mass, precision = cfg.Tension, cfg.Friction, cfg.Mass or 1, cfg.Precision or 0.01
-    local d = s.Position - s.Target
-    local accel = (-tension * d - friction * s.Velocity) / mass
-    s.Velocity = s.Velocity + accel * dt
-    s.Position = s.Position + s.Velocity * dt
-    if math.abs(s.Velocity) < precision and math.abs(d) < precision then
-        s.Position = s.Target; s.Velocity = 0; s.AtRest = true
-    end
-    return s.AtRest
-end
-
---// ═══════════════════════════════════════════════════════════════════════════════
---// SPRING ANIMATOR WRAPPER
---// ═══════════════════════════════════════════════════════════════════════════════
 
 local SpringAnimations = {}
-
-function SpringAnimations.CreateAnimator(initialValue, config)
-    local cfg = config or Constants.Springs.Default
-    local isVector = typeof(initialValue) == "Vector2"
-    local spring = isVector and SpringPhysics.Create2D(initialValue, cfg) or SpringPhysics.Create(initialValue, cfg)
-    return { Spring = spring, Config = cfg, IsVector = isVector }
+function SpringAnimations.CreateAnimator(v, cfg)
+    cfg = cfg or Constants.Springs.Default
+    local isVec = typeof(v) == "Vector2"
+    local spring = isVec and SpringPhysics.Create2D(v) or SpringPhysics.Create(v)
+    return { Spring = spring, Config = cfg, IsVector = isVec }
 end
-
 function SpringAnimations.SetTarget(a, t)
     if not a then return end
     if a.IsVector then SpringPhysics.SetTarget2D(a.Spring, t)
     else SpringPhysics.SetTarget(a.Spring, t) end
 end
-
 function SpringAnimations.Step(a, dt)
     if not a then return nil end
-    if a.IsVector then
-        SpringPhysics.Step2D(a.Spring, a.Config, dt)
+    if a.IsVector then SpringPhysics.Step2D(a.Spring, a.Config, dt)
     else
-        SpringPhysics.Step(a.Spring, a.Config, dt)
+        if a.Spring.AtRest then return a.Spring.Position end
+        local cfg = a.Config
+        local ten, fri, mass, prec = cfg.Tension, cfg.Friction, cfg.Mass or 1, cfg.Precision or 0.01
+        local d = a.Spring.Position - a.Spring.Target
+        local accel = (-ten*d - fri*a.Spring.Velocity)/mass
+        a.Spring.Velocity = a.Spring.Velocity + accel*dt
+        a.Spring.Position = a.Spring.Position + a.Spring.Velocity*dt
+        if math.abs(a.Spring.Velocity) < prec and math.abs(d) < prec then
+            a.Spring.Position = a.Spring.Target; a.Spring.Velocity = 0; a.Spring.AtRest = true
+        end
     end
     return a.Spring.Position
 end
 
---// ═══════════════════════════════════════════════════════════════════════════════
---// LAYER BUILDERS
---// ═══════════════════════════════════════════════════════════════════════════════
-
 local LayerBuilders = {}
 
--- SHADOW
 function LayerBuilders.CreateShadow(parent, cfg, corner)
     if not cfg.Enabled then return nil end
-
     local shadow = Instance.new("Frame")
-    shadow.Name = "Shadow"
-    shadow.Size = UDim2.new(1, cfg.Spread * 2, 1, cfg.Spread * 2)
+    shadow.Size = UDim2.new(1, cfg.Spread*2, 1, cfg.Spread*2)
     shadow.Position = UDim2.new(0.5, cfg.Offset.X, 0.5, cfg.Offset.Y)
     shadow.AnchorPoint = Vector2.new(0.5, 0.5)
     shadow.BackgroundColor3 = cfg.Color
-    shadow.BackgroundTransparency = cfg.Transparency
+    shadow.BackgroundTransparency = MathUtils.Clamp(cfg.Transparency, 0, 1)
     shadow.BorderSizePixel = 0
     shadow.ZIndex = Constants.ZOrder.Shadow
     shadow.Parent = parent
-
     local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(corner.Scale, corner.Offset + cfg.Blur * 0.4)
+    c.CornerRadius = UDim.new(corner.Scale, corner.Offset + cfg.Blur*0.4)
     c.Parent = shadow
-
-    -- Soft blur via multiple layers
     for i = 1, 3 do
         local blur = Instance.new("Frame")
-        blur.Size = UDim2.new(1, i * 6, 1, i * 6)
+        blur.Size = UDim2.new(1, i*6, 1, i*6)
         blur.Position = UDim2.fromScale(0.5, 0.5)
         blur.AnchorPoint = Vector2.new(0.5, 0.5)
         blur.BackgroundColor3 = cfg.Color
-        blur.BackgroundTransparency = math.clamp(cfg.Transparency + i * 0.08, 0, 1)
+        blur.BackgroundTransparency = MathUtils.Clamp(cfg.Transparency + i*0.08, 0, 1)
         blur.BorderSizePixel = 0
         blur.ZIndex = Constants.ZOrder.Shadow - i
         blur.Parent = shadow
         local bc = Instance.new("UICorner")
-        bc.CornerRadius = UDim.new(corner.Scale, corner.Offset + cfg.Blur * 0.4 + i * 2)
+        bc.CornerRadius = UDim.new(corner.Scale, corner.Offset + cfg.Blur*0.4 + i*2)
         bc.Parent = blur
     end
-
     return shadow
 end
 
--- BACKGROUND
 function LayerBuilders.CreateBackground(parent, cfg, corner)
     local bg = Instance.new("Frame")
-    bg.Name = "Background"
     bg.Size = UDim2.fromScale(1, 1)
     bg.BackgroundColor3 = cfg.Color
-    bg.BackgroundTransparency = cfg.Transparency
+    bg.BackgroundTransparency = MathUtils.Clamp(cfg.Transparency, 0, 1)
     bg.BorderSizePixel = 0
     bg.ZIndex = Constants.ZOrder.Background
     bg.Parent = parent
-
     local c = Instance.new("UICorner")
     c.CornerRadius = corner
     c.Parent = bg
-
     local grad = Instance.new("UIGradient")
     grad.Rotation = cfg.GradientRotation
     grad.Color = ColorSequence.new({
@@ -237,20 +178,17 @@ function LayerBuilders.CreateBackground(parent, cfg, corner)
         NumberSequenceKeypoint.new(1, 0.88),
     })
     grad.Parent = bg
-
     return bg
 end
 
--- FROST LAYERS
 function LayerBuilders.CreateFrostLayers(parent, cfg, depthCfg, corner)
-    if not cfg.Enabled then return {} end
     local layers = {}
+    if not cfg.Enabled then return layers end
 
-    -- Base tint
     local base = Instance.new("Frame")
     base.Size = UDim2.fromScale(1, 1)
     base.BackgroundColor3 = cfg.Tint
-    base.BackgroundTransparency = 1 - cfg.TintOpacity
+    base.BackgroundTransparency = MathUtils.Clamp(1 - cfg.TintOpacity, 0, 1)
     base.BorderSizePixel = 0
     base.ZIndex = Constants.ZOrder.FrostBase
     base.Parent = parent
@@ -259,38 +197,32 @@ function LayerBuilders.CreateFrostLayers(parent, cfg, depthCfg, corner)
     c.Parent = base
     table.insert(layers, base)
 
-    -- Noise
     for i = 1, cfg.Layers do
         local noise = Instance.new("Frame")
         noise.Size = UDim2.fromScale(1, 1)
         noise.BackgroundColor3 = Color3.new(1, 1, 1)
-        noise.BackgroundTransparency = 0
         noise.BorderSizePixel = 0
         noise.ZIndex = Constants.ZOrder.FrostNoise + i
         noise.Parent = parent
-
         local nc = Instance.new("UICorner")
         nc.CornerRadius = corner
         nc.Parent = noise
-
         local g = Instance.new("UIGradient")
         g.Rotation = i * 45
-        local colorPoints, transpPoints = {}, {}
+        local cps, tps = {}, {}
         for j = 0, 6 do
             local pos = j / 6
-            local v = MathUtils.SeededRandom(12345 + i * 100 + j * 10)
-            -- КЛЮЧЕВОЙ ФИКС: clamp яркости в 0..1
-            local brightness = MathUtils.Clamp(0.95 + v * 0.1, 0, 1)
-            table.insert(colorPoints, ColorSequenceKeypoint.new(pos, Color3.new(brightness, brightness, brightness)))
-            table.insert(transpPoints, NumberSequenceKeypoint.new(pos, MathUtils.Clamp(1 - cfg.NoiseOpacity + v * cfg.NoiseOpacity * 0.4, 0.7, 1)))
+            local v = MathUtils.SeededRandom(12345 + i*100 + j*10)
+            local b = MathUtils.Clamp(0.95 + v*0.1, 0, 1)
+            table.insert(cps, ColorSequenceKeypoint.new(pos, Color3.new(b, b, b)))
+            table.insert(tps, NumberSequenceKeypoint.new(pos, MathUtils.Clamp(1 - cfg.NoiseOpacity + v*cfg.NoiseOpacity*0.4, 0.7, 1)))
         end
-        g.Color = ColorSequence.new(colorPoints)
-        g.Transparency = NumberSequence.new(transpPoints)
+        g.Color = ColorSequence.new(cps)
+        g.Transparency = NumberSequence.new(tps)
         g.Parent = noise
         table.insert(layers, noise)
     end
 
-    -- Top glow
     if depthCfg.Enabled then
         local top = Instance.new("Frame")
         top.Size = UDim2.fromScale(1, 0.5)
@@ -299,20 +231,17 @@ function LayerBuilders.CreateFrostLayers(parent, cfg, depthCfg, corner)
         top.BorderSizePixel = 0
         top.ZIndex = Constants.ZOrder.DepthTop
         top.Parent = parent
-
         local tc = Instance.new("UICorner")
         tc.CornerRadius = corner
         tc.Parent = top
-
         local tg = Instance.new("UIGradient")
         tg.Rotation = 180
         tg.Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 1 - depthCfg.TopGlowOpacity),
+            NumberSequenceKeypoint.new(0, MathUtils.Clamp(1 - depthCfg.TopGlowOpacity, 0, 1)),
             NumberSequenceKeypoint.new(1, 1),
         })
         tg.Parent = top
 
-        -- Bottom shadow
         local bot = Instance.new("Frame")
         bot.Size = UDim2.fromScale(1, 0.35)
         bot.Position = UDim2.fromScale(0, 0.65)
@@ -320,16 +249,14 @@ function LayerBuilders.CreateFrostLayers(parent, cfg, depthCfg, corner)
         bot.BorderSizePixel = 0
         bot.ZIndex = Constants.ZOrder.DepthBottom
         bot.Parent = parent
-
         local bc = Instance.new("UICorner")
         bc.CornerRadius = corner
         bc.Parent = bot
-
         local bg = Instance.new("UIGradient")
         bg.Rotation = 180
         bg.Transparency = NumberSequence.new({
             NumberSequenceKeypoint.new(0, 1),
-            NumberSequenceKeypoint.new(1, 1 - depthCfg.BottomShadowOpacity),
+            NumberSequenceKeypoint.new(1, MathUtils.Clamp(1 - depthCfg.BottomShadowOpacity, 0, 1)),
         })
         bg.Parent = bot
     end
@@ -337,25 +264,21 @@ function LayerBuilders.CreateFrostLayers(parent, cfg, depthCfg, corner)
     return layers
 end
 
--- CHROMATIC ABERRATION
 function LayerBuilders.CreateChromaticLayers(parent, cfg, corner)
     if not cfg.Enabled then return {} end
     local out = {}
-
-    local function make(channel, color, offset, z)
+    local function make(name, color, offset, z)
         local f = Instance.new("Frame")
-        f.Name = "Chromatic_" .. channel
+        f.Name = "Chromatic_" .. name
         f.Size = UDim2.fromScale(1, 1)
         f.Position = UDim2.fromOffset(offset.X * cfg.Intensity, offset.Y * cfg.Intensity)
         f.BackgroundColor3 = color
         f.BorderSizePixel = 0
         f.ZIndex = z
         f.Parent = parent
-
         local c = Instance.new("UICorner")
         c.CornerRadius = corner
         c.Parent = f
-
         if cfg.EdgeOnly then
             local g = Instance.new("UIGradient")
             g.Transparency = NumberSequence.new({
@@ -368,10 +291,8 @@ function LayerBuilders.CreateChromaticLayers(parent, cfg, corner)
         else
             f.BackgroundTransparency = MathUtils.Clamp(1 - cfg.Opacity, 0, 1)
         end
-
         return f
     end
-
     out.Red   = make("Red",   Color3.fromRGB(255, 90, 90), cfg.RedOffset,   Constants.ZOrder.Chromatic)
     out.Green = make("Green", Color3.fromRGB(90, 255, 90), cfg.GreenOffset, Constants.ZOrder.Chromatic + 1)
     out.Blue  = make("Blue",  Color3.fromRGB(90, 90, 255), cfg.BlueOffset,  Constants.ZOrder.Chromatic + 2)
@@ -383,50 +304,42 @@ function LayerBuilders.UpdateChromatic(layers, offset, cfg)
     local mi = cfg.Intensity * 1.5
     if layers.Red then
         layers.Red.Position = UDim2.fromOffset(
-            cfg.RedOffset.X * cfg.Intensity + offset.X * mi,
-            cfg.RedOffset.Y * cfg.Intensity + offset.Y * mi * 0.3
-        )
+            cfg.RedOffset.X*cfg.Intensity + offset.X*mi,
+            cfg.RedOffset.Y*cfg.Intensity + offset.Y*mi*0.3)
     end
-    if layers.Green then
-        layers.Green.Position = UDim2.fromOffset(0, 0)
-    end
+    if layers.Green then layers.Green.Position = UDim2.fromOffset(0, 0) end
     if layers.Blue then
         layers.Blue.Position = UDim2.fromOffset(
-            cfg.BlueOffset.X * cfg.Intensity - offset.X * mi * 0.5,
-            cfg.BlueOffset.Y * cfg.Intensity - offset.Y * mi * 0.3
-        )
+            cfg.BlueOffset.X*cfg.Intensity - offset.X*mi*0.5,
+            cfg.BlueOffset.Y*cfg.Intensity - offset.Y*mi*0.3)
     end
 end
 
--- REFRACTION EDGES
 function LayerBuilders.CreateRefractionLayers(parent, cfg, corner)
     if not cfg.Enabled then return {} end
     local out = { Top = {}, Bottom = {}, Left = {}, Right = {} }
-
     for _, edge in ipairs({"Top", "Bottom", "Left", "Right"}) do
         for i = 1, cfg.Layers do
             local depthFactor = 1 - ((i - 1) / cfg.Layers)
             local offset = cfg.Intensity * depthFactor
-
             local size, pos, rot
             if edge == "Top" then
                 size = UDim2.new(1, 0, 0, cfg.EdgeWidth)
-                pos  = UDim2.new(0, 0, 0, -offset * 0.15 * i)
+                pos  = UDim2.new(0, 0, 0, -offset*0.15*i)
                 rot  = 180
             elseif edge == "Bottom" then
                 size = UDim2.new(1, 0, 0, cfg.EdgeWidth)
-                pos  = UDim2.new(0, 0, 1, -cfg.EdgeWidth + offset * 0.15 * i)
+                pos  = UDim2.new(0, 0, 1, -cfg.EdgeWidth + offset*0.15*i)
                 rot  = 0
             elseif edge == "Left" then
                 size = UDim2.new(0, cfg.EdgeWidth, 1, 0)
-                pos  = UDim2.new(0, -offset * 0.15 * i, 0, 0)
+                pos  = UDim2.new(0, -offset*0.15*i, 0, 0)
                 rot  = 90
             else
                 size = UDim2.new(0, cfg.EdgeWidth, 1, 0)
-                pos  = UDim2.new(1, -cfg.EdgeWidth + offset * 0.15 * i, 0, 0)
+                pos  = UDim2.new(1, -cfg.EdgeWidth + offset*0.15*i, 0, 0)
                 rot  = 270
             end
-
             local f = Instance.new("Frame")
             f.Size = size
             f.Position = pos
@@ -435,11 +348,9 @@ function LayerBuilders.CreateRefractionLayers(parent, cfg, corner)
             f.ZIndex = Constants.ZOrder.Refraction + i
             f.ClipsDescendants = true
             f.Parent = parent
-
             local c = Instance.new("UICorner")
             c.CornerRadius = corner
             c.Parent = f
-
             local g = Instance.new("UIGradient")
             g.Rotation = rot
             local opacity = MathUtils.Clamp(0.04 * depthFactor, 0, 1)
@@ -448,35 +359,27 @@ function LayerBuilders.CreateRefractionLayers(parent, cfg, corner)
                 NumberSequenceKeypoint.new(1, 1),
             })
             g.Parent = f
-
             table.insert(out[edge], f)
         end
     end
     return out
 end
 
--- BORDER
 function LayerBuilders.CreateBorder(parent, cfg, corner)
     if not cfg.Enabled then return {} end
-
     local border = Instance.new("Frame")
-    border.Name = "Border"
     border.Size = UDim2.fromScale(1, 1)
     border.BackgroundTransparency = 1
     border.ZIndex = Constants.ZOrder.Border
     border.Parent = parent
-
     local bc = Instance.new("UICorner")
     bc.CornerRadius = corner
     bc.Parent = border
-
     local stroke = Instance.new("UIStroke")
     stroke.Thickness = cfg.Thickness
     stroke.Color = Color3.new(1, 1, 1)
-    stroke.Transparency = 0
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     stroke.Parent = border
-
     local grad = Instance.new("UIGradient")
     grad.Rotation = cfg.BaseRotation
     grad.Transparency = NumberSequence.new({
@@ -487,25 +390,20 @@ function LayerBuilders.CreateBorder(parent, cfg, corner)
         NumberSequenceKeypoint.new(1, 0.92),
     })
     grad.Parent = stroke
-
     return { Frame = border, Stroke = stroke, Gradient = grad }
 end
 
--- INNER GLOW
 function LayerBuilders.CreateInnerGlow(parent, cfg, corner)
     if not cfg.Enabled then return nil end
-
     local f = Instance.new("Frame")
     f.Size = UDim2.fromScale(1, 1)
     f.BackgroundColor3 = cfg.InnerGlowColor
     f.BorderSizePixel = 0
     f.ZIndex = Constants.ZOrder.InnerGlow
     f.Parent = parent
-
     local c = Instance.new("UICorner")
     c.CornerRadius = corner
     c.Parent = f
-
     local g = Instance.new("UIGradient")
     local op = MathUtils.Clamp(cfg.InnerGlowOpacity, 0, 1)
     g.Transparency = NumberSequence.new({
@@ -515,74 +413,57 @@ function LayerBuilders.CreateInnerGlow(parent, cfg, corner)
         NumberSequenceKeypoint.new(1, 1 - op),
     })
     g.Parent = f
-
     return f
 end
 
--- HOVER GLOW
-function LayerBuilders.CreateHoverGlow(parent, color, maxOpacity, corner)
+function LayerBuilders.CreateHoverGlow(parent, color, corner)
     local f = Instance.new("Frame")
-    f.Name = "HoverGlow"
     f.Size = UDim2.fromScale(1, 1)
     f.BackgroundColor3 = color
     f.BackgroundTransparency = 1
     f.BorderSizePixel = 0
     f.ZIndex = Constants.ZOrder.HoverGlow
     f.Parent = parent
-
     local c = Instance.new("UICorner")
     c.CornerRadius = corner
     c.Parent = f
-
-    f:SetAttribute("MaxOpacity", maxOpacity)
     return f
 end
 
--- PRESS OVERLAY
 function LayerBuilders.CreatePressOverlay(parent, corner)
     local f = Instance.new("Frame")
-    f.Name = "PressOverlay"
     f.Size = UDim2.fromScale(1, 1)
     f.BackgroundColor3 = Color3.new(0, 0, 0)
     f.BackgroundTransparency = 1
     f.BorderSizePixel = 0
     f.ZIndex = Constants.ZOrder.PressOverlay
     f.Parent = parent
-
     local c = Instance.new("UICorner")
     c.CornerRadius = corner
     c.Parent = f
-
     return f
 end
 
--- CONTENT
 function LayerBuilders.CreateContent(parent, corner)
     local f = Instance.new("Frame")
-    f.Name = "Content"
     f.Size = UDim2.fromScale(1, 1)
     f.BackgroundTransparency = 1
     f.ClipsDescendants = true
     f.ZIndex = Constants.ZOrder.Content
     f.Parent = parent
-
     local c = Instance.new("UICorner")
     c.CornerRadius = corner
     c.Parent = f
-
     local p = Instance.new("UIPadding")
     p.PaddingTop = UDim.new(0, 8)
     p.PaddingBottom = UDim.new(0, 8)
     p.PaddingLeft = UDim.new(0, 12)
     p.PaddingRight = UDim.new(0, 12)
     p.Parent = f
-
     return f
 end
 
---// ═══════════════════════════════════════════════════════════════════════════════
---// LIQUIDGLASS CLASS
---// ═══════════════════════════════════════════════════════════════════════════════
+-- LIQUIDGLASS CLASS
 
 local LiquidGlass = {}
 LiquidGlass.__index = LiquidGlass
@@ -621,7 +502,6 @@ function LiquidGlass:_build()
     local corner = cfg.CornerRadius or 16
     if typeof(corner) == "number" then corner = UDim.new(0, corner) end
 
-    -- ROOT
     local root = Instance.new("Frame")
     root.Name = cfg.Name or "LiquidGlass"
     root.Size = cfg.Size or UDim2.fromOffset(200, 56)
@@ -642,7 +522,6 @@ function LiquidGlass:_build()
     self._uiScale.Scale = 1
     self._uiScale.Parent = root
 
-    -- BUILD LAYERS (bottom → top)
     self._shadow     = LayerBuilders.CreateShadow(root, cfg.Shadow, corner)
     self._background = LayerBuilders.CreateBackground(root, cfg.Background, corner)
     self._frost      = LayerBuilders.CreateFrostLayers(root, cfg.Frost, cfg.Depth, corner)
@@ -650,13 +529,11 @@ function LiquidGlass:_build()
     self._chromatic  = LayerBuilders.CreateChromaticLayers(root, cfg.Chromatic, corner)
     self._innerGlow  = LayerBuilders.CreateInnerGlow(root, cfg.Depth, corner)
     self._border     = LayerBuilders.CreateBorder(root, cfg.BorderGradient, corner)
-    self._hoverGlow  = LayerBuilders.CreateHoverGlow(root, cfg.Depth.InnerGlowColor, 0.18, corner)
+    self._hoverGlow  = LayerBuilders.CreateHoverGlow(root, cfg.Depth.InnerGlowColor, corner)
     self._pressOvl   = LayerBuilders.CreatePressOverlay(root, corner)
     self._content    = LayerBuilders.CreateContent(root, corner)
 
-    -- INPUT
     local input = Instance.new("TextButton")
-    input.Name = "Input"
     input.Size = UDim2.fromScale(1, 1)
     input.BackgroundTransparency = 1
     input.Text = ""
@@ -679,7 +556,7 @@ function LiquidGlass:_setupInteraction()
         if self._shadow then
             TweenService:Create(self._shadow, TweenInfo.new(0.25), {
                 BackgroundTransparency = MathUtils.Clamp(cfg.Shadow.Transparency * 0.85, 0, 1),
-                Size = UDim2.new(1, cfg.Shadow.Spread * 2.5, 1, cfg.Shadow.Spread * 2.5),
+                Size = UDim2.new(1, cfg.Shadow.Spread*2.5, 1, cfg.Shadow.Spread*2.5),
             }):Play()
         end
         if cfg.onHover then cfg.onHover() end
@@ -691,24 +568,27 @@ function LiquidGlass:_setupInteraction()
         self._mouseOffset = Vector2.zero
         SpringAnimations.SetTarget(self._scaleSpring, Vector2.new(1, 1))
         SpringAnimations.SetTarget(self._positionSpring, Vector2.zero)
-
         if self._hoverGlow then
             TweenService:Create(self._hoverGlow, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
         end
         if self._shadow then
             TweenService:Create(self._shadow, TweenInfo.new(0.3), {
                 BackgroundTransparency = cfg.Shadow.Transparency,
-                Size = UDim2.new(1, cfg.Shadow.Spread * 2, 1, cfg.Shadow.Spread * 2),
+                Size = UDim2.new(1, cfg.Shadow.Spread*2, 1, cfg.Shadow.Spread*2),
             }):Play()
         end
         if self._border and self._border.Gradient then
             TweenService:Create(self._border.Gradient, TweenInfo.new(0.4), { Rotation = cfg.BorderGradient.BaseRotation }):Play()
         end
+        if self._chromatic then
+            LayerBuilders.UpdateChromatic(self._chromatic, Vector2.zero, cfg.Chromatic)
+        end
         if cfg.onHoverEnd then cfg.onHoverEnd() end
     end))
 
     table.insert(conns, self._input.InputBegan:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+            or inp.UserInputType == Enum.UserInputType.Touch then
             self._isPressed = true
             SpringAnimations.SetTarget(self._scaleSpring, Vector2.new(cfg.Interaction.PressScale, cfg.Interaction.PressScale))
             if self._pressOvl then
@@ -719,7 +599,8 @@ function LiquidGlass:_setupInteraction()
     end))
 
     table.insert(conns, self._input.InputEnded:Connect(function(inp)
-        if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+            or inp.UserInputType == Enum.UserInputType.Touch then
             if self._isPressed then
                 self._isPressed = false
                 local target = self._isHovered and cfg.Interaction.HoverScale or 1
@@ -736,7 +617,6 @@ function LiquidGlass:_setupInteraction()
     table.insert(conns, UserInputService.InputChanged:Connect(function(inp)
         if inp.UserInputType ~= Enum.UserInputType.MouseMovement then return end
         if not self._isHovered then return end
-
         local pos = Vector2.new(inp.Position.X, inp.Position.Y)
         local absPos = self._root.AbsolutePosition
         local absSize = self._root.AbsoluteSize
@@ -746,18 +626,13 @@ function LiquidGlass:_setupInteraction()
         local ny = math.clamp(rel.Y / (absSize.Y / 2), -1, 1)
         self._mouseOffset = Vector2.new(nx, ny)
 
-        -- Border rotation
         if self._border and self._border.Gradient then
             self._border.Gradient.Rotation = cfg.BorderGradient.BaseRotation + nx * cfg.BorderGradient.MouseInfluence
         end
-
-        -- Chromatic
         LayerBuilders.UpdateChromatic(self._chromatic, Vector2.new(nx, ny), cfg.Chromatic)
-
-        -- Elastic position
         if cfg.Interaction.ElasticEnabled then
             local intensity = cfg.Interaction.ElasticIntensity or 6
-            SpringAnimations.SetTarget(self._positionSpring, Vector2.new(nx * intensity, ny * intensity))
+            SpringAnimations.SetTarget(self._positionSpring, Vector2.new(nx*intensity, ny*intensity))
         end
     end))
 end
@@ -765,18 +640,14 @@ end
 function LiquidGlass:_startLoop()
     self._loopConn = RunService.Heartbeat:Connect(function(dt)
         if not self._root or not self._root.Parent then return end
-
         local pos = SpringAnimations.Step(self._positionSpring, dt)
         local scale = SpringAnimations.Step(self._scaleSpring, dt)
-
         if typeof(pos) == "Vector2" then
             local base = self._config.Position or UDim2.fromScale(0.5, 0.5)
             self._root.Position = UDim2.new(
                 base.X.Scale, base.X.Offset + pos.X,
-                base.Y.Scale, base.Y.Offset + pos.Y
-            )
+                base.Y.Scale, base.Y.Offset + pos.Y)
         end
-
         if typeof(scale) == "Vector2" and self._uiScale then
             self._uiScale.Scale = scale.X
         end
@@ -784,7 +655,6 @@ function LiquidGlass:_startLoop()
     table.insert(self._connections, self._loopConn)
 end
 
--- PUBLIC API
 function LiquidGlass:SetContent(child)
     child.Parent = self._content
     return self
@@ -803,16 +673,13 @@ function LiquidGlass:Destroy()
     if self._root then self._root:Destroy() end
 end
 
---// ═══════════════════════════════════════════════════════════════════════════════
---// FACTORY PRESETS
---// ═══════════════════════════════════════════════════════════════════════════════
+-- FACTORY PRESETS
 
 function LiquidGlass.CreateButton(text, onClick, config)
     config = config or {}
     config.onClick = onClick
     if not config.Size         then config.Size         = UDim2.fromOffset(180, 52) end
     if not config.CornerRadius then config.CornerRadius = 26 end
-
     local btn = LiquidGlass.new(config)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.fromScale(1, 1)
@@ -837,7 +704,6 @@ function LiquidGlass.CreatePill(text, config)
     config = config or {}
     if not config.Size         then config.Size         = UDim2.fromOffset(110, 34) end
     if not config.CornerRadius then config.CornerRadius = 17 end
-
     local pill = LiquidGlass.new(config)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.fromScale(1, 1)
@@ -874,7 +740,6 @@ function LiquidGlass.CreateStatusBadge(text, color, config)
         config.Frost = config.Frost or {}
         config.Frost.Tint = color
     end
-
     local badge = LiquidGlass.new(config)
     local label = Instance.new("TextLabel")
     label.Size = UDim2.fromScale(1, 1)
@@ -887,10 +752,6 @@ function LiquidGlass.CreateStatusBadge(text, color, config)
     label.Parent = badge:GetContentFrame()
     return badge
 end
-
---// ═══════════════════════════════════════════════════════════════════════════════
---// EXPORT
---// ═══════════════════════════════════════════════════════════════════════════════
 
 return {
     VERSION = Constants.VERSION,
